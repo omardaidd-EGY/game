@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>????? 3D - ???? ???????</title>
+    <title>لعبة الغميضة 3D - التحدي الأقصى</title>
     <style>
         * {
             margin: 0;
@@ -26,18 +26,74 @@
             position: absolute;
             top: 10px;
             right: 10px;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             color: #0f0;
-            padding: 10px;
-            border: 1px solid #0f0;
-            border-radius: 5px;
+            padding: 12px 15px;
+            border: 2px solid #0f0;
+            border-radius: 8px;
             font-family: 'Courier New', monospace;
-            font-size: 12px;
+            font-size: 13px;
             z-index: 100;
             pointer-events: none;
+            line-height: 1.5;
         }
         
-        /* ????? ???? ??????? */
+        #game-status {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            color: #ffcc00;
+            padding: 10px 25px;
+            border: 2px solid #ffcc00;
+            border-radius: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 100;
+            text-align: center;
+        }
+
+        #game-over-screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+        #game-over-screen h1 {
+            font-size: 40px;
+            color: #ff3333;
+            margin-bottom: 10px;
+        }
+        #game-over-screen p {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        #high-score-text {
+            color: #ffcc00;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        #restart-btn {
+            padding: 12px 30px;
+            font-size: 18px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
         .touch-zone {
             display: none;
         }
@@ -99,70 +155,90 @@
     </style>
 </head>
 <body>
+    <div id="game-status">
+        <span id="status-text">اختبئ بسرعة!</span> - <span id="timer">15</span>s
+    </div>
+
     <div id="info">
-        <div>?? ????? 3D</div>
+        <div>غميضة 3D (تحدي)</div>
+        <div>النقاط: <span id="score">0</span></div>
         <div>X: <span id="posX">0</span></div>
         <div>Y: <span id="posY">0</span></div>
         <div>Z: <span id="posZ">0</span></div>
         <div>FPS: <span id="fps">0</span></div>
     </div>
 
+    <div id="game-over-screen">
+        <h1>تم الإمساك بك! 🙈</h1>
+        <p id="final-score">صمدت لمدة: 0 ثانية</p>
+        <p id="high-score-text">أعلى رقم قياسي: 0 ثانية</p>
+        <button id="restart-btn" onclick="resetGame()">إعادة اللعب 🔄</button>
+    </div>
+
     <div id="joystick-container" class="touch-zone">
         <div id="joystick-knob"></div>
     </div>
     <div id="touch-look-zone" class="touch-zone"></div>
-    <div id="btn-jump" class="touch-btn touch-zone">???</div>
-    <div id="btn-sprint" class="touch-btn touch-zone">???</div>
+    <div id="btn-jump" class="touch-btn touch-zone">قفز</div>
+    <div id="btn-sprint" class="touch-btn touch-zone">ركل</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87ceeb);
-        scene.fog = new THREE.Fog(0x87ceeb, 200, 500);
+        scene.fog = new THREE.FogExp2(0x87ceeb, 0.0012);
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.set(0, 3, 20);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
+        camera.position.set(0, 3, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        // ???? ?????? ????????? (???????? code ?????? ??? ??????? ?? ????? ???????)
         const keys = {};
         let playerVelocity = new THREE.Vector3();
         let canJump = true;
         let yaw = 0;
         let pitch = 0;
+        let headBobTimer = 0;
 
+        let gameState = 'hiding';
+        let hideTime = 15; // تقليل الوقت لزيادة التحدي
+        let survivedTime = 0;
+        let highScore = localStorage.getItem('hide_seek_highscore') || 0;
+        let timerInterval = null;
+        let baseSeekerSpeed = 0.25;
+
+        const colliders = [];
+
+        // دعم مفاتيح الحركة والأسهم
         document.addEventListener('keydown', (e) => {
             keys[e.code] = true;
-            if (e.code === 'Space' && canJump) {
-                playerVelocity.y = 0.4;
+            if (e.code === 'Space' && canJump && gameState !== 'caught') {
+                playerVelocity.y = 0.45;
                 canJump = false;
             }
         });
 
-        document.addEventListener('keyup', (e) => {
-            keys[e.code] = false;
-        });
+        document.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
-        // ???? ??????
         document.addEventListener('mousemove', (e) => {
-            if (document.pointerLockElement === renderer.domElement) {
-                yaw -= e.movementX * 0.003;
-                pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch - e.movementY * 0.003));
+            if (document.pointerLockElement === renderer.domElement && gameState !== 'caught') {
+                yaw -= e.movementX * 0.0025;
+                pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch - e.movementY * 0.0025));
             }
         });
 
         renderer.domElement.addEventListener('click', () => {
-            if (!('ontouchstart' in window)) {
+            if (!('ontouchstart' in window) && gameState !== 'caught') {
                 renderer.domElement.requestPointerLock();
             }
         });
 
-        // ------------------ ????? ???? ????? (??????) ------------------
+        // ------------------ تحكم اللمس ------------------
         let touchMoveVector = { x: 0, y: 0 };
         let isSprintingTouch = false;
         const joystickContainer = document.getElementById('joystick-container');
@@ -177,9 +253,7 @@
 
         joystickContainer.addEventListener('touchmove', (e) => {
             for (let touch of e.changedTouches) {
-                if (touch.identifier === joystickTouchId) {
-                    updateJoystick(touch);
-                }
+                if (touch.identifier === joystickTouchId) updateJoystick(touch);
             }
         });
 
@@ -195,11 +269,8 @@
 
         function updateJoystick(touch) {
             const rect = joystickContainer.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            
-            let deltaX = touch.clientX - centerX;
-            let deltaY = touch.clientY - centerY;
+            let deltaX = touch.clientX - (rect.left + rect.width / 2);
+            let deltaY = touch.clientY - (rect.top + rect.height / 2);
             const distance = Math.hypot(deltaX, deltaY);
             const maxRadius = 40;
 
@@ -215,7 +286,6 @@
             touchMoveVector.y = deltaY / maxRadius;
         }
 
-        // ???????? ?????? (????? ??? ?????? ??????)
         const touchLookZone = document.getElementById('touch-look-zone');
         let lookTouchId = null;
         let lastTouchPos = { x: 0, y: 0 };
@@ -228,146 +298,338 @@
 
         touchLookZone.addEventListener('touchmove', (e) => {
             for (let touch of e.changedTouches) {
-                if (touch.identifier === lookTouchId) {
+                if (touch.identifier === lookTouchId && gameState !== 'caught') {
                     const deltaX = touch.clientX - lastTouchPos.x;
                     const deltaY = touch.clientY - lastTouchPos.y;
 
-                    yaw -= deltaX * 0.005;
-                    pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch - deltaY * 0.005));
+                    yaw -= deltaX * 0.004;
+                    pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch - deltaY * 0.004));
 
                     lastTouchPos = { x: touch.clientX, y: touch.clientY };
                 }
             }
         });
 
-        const resetLookTouch = () => { lookTouchId = null; };
-        touchLookZone.addEventListener('touchend', resetLookTouch);
-        touchLookZone.addEventListener('touchcancel', resetLookTouch);
+        touchLookZone.addEventListener('touchend', () => { lookTouchId = null; });
 
-        // ????? ?????
-        const btnJump = document.getElementById('btn-jump');
-        const btnSprint = document.getElementById('btn-sprint');
-
-        btnJump.addEventListener('touchstart', (e) => {
+        document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (canJump) {
-                playerVelocity.y = 0.4;
+            if (canJump && gameState !== 'caught') {
+                playerVelocity.y = 0.45;
                 canJump = false;
             }
         });
 
-        btnSprint.addEventListener('touchstart', (e) => {
+        document.getElementById('btn-sprint').addEventListener('touchstart', (e) => {
             e.preventDefault();
             isSprintingTouch = !isSprintingTouch;
-            btnSprint.style.background = isSprintingTouch ? 'rgba(0, 255, 0, 0.5)' : 'rgba(0, 0, 0, 0.6)';
+            document.getElementById('btn-sprint').style.background = isSprintingTouch ? 'rgba(0, 255, 0, 0.5)' : 'rgba(0, 0, 0, 0.6)';
         });
 
-        // ------------------ ???? ?????? ------------------
-        const groundGeo = new THREE.PlaneGeometry(500, 500);
-        const groundMat = new THREE.MeshLambertMaterial({ color: 0x2d8f2d });
-        const ground = new THREE.Mesh(groundGeo, groundMat);
+        // ------------------ البيئة والإضاءة ------------------
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(2000, 2000),
+            new THREE.MeshStandardMaterial({ color: 0x4d8c43, roughness: 0.8 })
+        );
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         scene.add(ground);
 
-        const grid = new THREE.GridHelper(500, 50, 0x444444, 0x888888);
-        grid.position.y = 0.01;
-        scene.add(grid);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444455, 0.6);
+        hemiLight.position.set(0, 300, 0);
+        scene.add(hemiLight);
+
+        const sun = new THREE.DirectionalLight(0xfffaed, 1.2);
+        sun.position.set(200, 400, 150);
+        sun.castShadow = true;
+        sun.shadow.mapSize.width = 2048;
+        sun.shadow.mapSize.height = 2048;
+        sun.shadow.camera.near = 0.5;
+        sun.shadow.camera.far = 1000;
+        const d = 500;
+        sun.shadow.camera.left = -d;
+        sun.shadow.camera.right = d;
+        sun.shadow.camera.top = d;
+        sun.shadow.camera.bottom = -d;
+        scene.add(sun);
+
+        function createBuilding(x, z, w, d, h, color) {
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(w, h, d),
+                new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 })
+            );
+            mesh.position.set(x, h / 2, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+
+            colliders.push({
+                type: 'box',
+                minX: x - w / 2,
+                maxX: x + w / 2,
+                minZ: z - d / 2,
+                maxZ: z + d / 2
+            });
+        }
 
         function createTree(x, z) {
+            const trunkRadius = 0.8;
             const trunk = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.5, 0.7, 4, 8),
-                new THREE.MeshLambertMaterial({ color: 0x8b4513 })
+                new THREE.CylinderGeometry(trunkRadius * 0.8, trunkRadius, 6, 8),
+                new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 })
             );
-            trunk.position.set(x, 2, z);
+            trunk.position.set(x, 3, z);
             trunk.castShadow = true;
             trunk.receiveShadow = true;
             scene.add(trunk);
 
             const leaves = new THREE.Mesh(
-                new THREE.SphereGeometry(3, 8, 8),
-                new THREE.MeshLambertMaterial({ color: 0x228b22 })
+                new THREE.ConeGeometry(4, 9, 8),
+                new THREE.MeshStandardMaterial({ color: 0x1e561e, roughness: 0.7 })
             );
-            leaves.position.set(x, 6, z);
+            leaves.position.set(x, 9, z);
             leaves.castShadow = true;
             leaves.receiveShadow = true;
             scene.add(leaves);
+
+            colliders.push({
+                type: 'cylinder',
+                x: x,
+                z: z,
+                radius: trunkRadius
+            });
         }
 
-        for (let i = 0; i < 20; i++) {
-            createTree(Math.random() * 200 - 100, Math.random() * 200 - 100);
+        const buildingColors = [0xb22222, 0x4682b4, 0xd2691e, 0x708090, 0x2e8b57];
+        for (let i = 0; i < 60; i++) {
+            const x = (Math.random() - 0.5) * 1600;
+            const z = (Math.random() - 0.5) * 1600;
+            if (Math.hypot(x, z) > 35) {
+                const w = 8 + Math.random() * 12;
+                const d = 8 + Math.random() * 12;
+                const h = 8 + Math.random() * 15;
+                const col = buildingColors[Math.floor(Math.random() * buildingColors.length)];
+                createBuilding(x, z, w, d, h, col);
+            }
         }
 
-        function createBuilding(x, z, w, d, h, col) {
-            const building = new THREE.Mesh(
-                new THREE.BoxGeometry(w, h, d),
-                new THREE.MeshLambertMaterial({ color: col })
-            );
-            building.position.set(x, h / 2, z);
-            building.castShadow = true;
-            building.receiveShadow = true;
-            scene.add(building);
+        for (let i = 0; i < 100; i++) {
+            const x = (Math.random() - 0.5) * 1600;
+            const z = (Math.random() - 0.5) * 1600;
+            if (Math.hypot(x, z) > 35) {
+                createTree(x, z);
+            }
         }
 
-        createBuilding(0, 0, 10, 10, 8, 0xff6347);
-        createBuilding(-30, -30, 8, 8, 6, 0x4169e1);
-        createBuilding(30, 30, 8, 8, 6, 0xffa500);
+        // ------------------ مجسم الصائد واعيونه والمصباح ------------------
+        const seekerGroup = new THREE.Group();
+        
+        const seekerBody = new THREE.Mesh(
+            new THREE.CylinderGeometry(1, 1, 4, 16),
+            new THREE.MeshStandardMaterial({ color: 0xcc0000, roughness: 0.3 })
+        );
+        seekerBody.position.y = 2;
+        seekerBody.castShadow = true;
+        seekerGroup.add(seekerBody);
 
-        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambient);
+        const seekerHead = new THREE.Mesh(
+            new THREE.SphereGeometry(1.2, 16, 16),
+            new THREE.MeshStandardMaterial({ color: 0x222222 })
+        );
+        seekerHead.position.y = 4.5;
+        seekerGroup.add(seekerHead);
 
-        const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-        sun.position.set(100, 100, 50);
-        sun.castShadow = true;
-        scene.add(sun);
+        const eyeGeo = new THREE.SphereGeometry(0.3, 8, 8);
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+        leftEye.position.set(-0.4, 4.6, 1);
+        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+        rightEye.position.set(0.4, 4.6, 1);
+        seekerGroup.add(leftEye);
+        seekerGroup.add(rightEye);
 
-        // ------------------ ???? ?????? ???????? ------------------
+        // كشاف الصائد الاحمر
+        const seekerSpotlight = new THREE.SpotLight(0xff0000, 3, 100, Math.PI / 5, 0.5);
+        seekerSpotlight.position.set(0, 4.5, 0.5);
+        seekerSpotlight.target.position.set(0, 0, 20);
+        seekerGroup.add(seekerSpotlight);
+        seekerGroup.add(seekerSpotlight.target);
+
+        seekerGroup.position.set(0, 0, -100);
+        scene.add(seekerGroup);
+
+        // ------------------ دالة فحص التصادم ------------------
+        function checkCollision(pos, radius) {
+            for (let col of colliders) {
+                if (col.type === 'box') {
+                    const closestX = Math.max(col.minX, Math.min(pos.x, col.maxX));
+                    const closestZ = Math.max(col.minZ, Math.min(pos.z, col.maxZ));
+                    const distX = pos.x - closestX;
+                    const distZ = pos.z - closestZ;
+                    if (Math.hypot(distX, distZ) < radius) return true;
+                } else if (col.type === 'cylinder') {
+                    const distX = pos.x - col.x;
+                    const distZ = pos.z - col.z;
+                    if (Math.hypot(distX, distZ) < (radius + col.radius)) return true;
+                }
+            }
+            return false;
+        }
+
+        // ------------------ نظام الوقت والمنطق ------------------
+        function startTimer() {
+            clearInterval(timerInterval);
+            hideTime = 15;
+            survivedTime = 0;
+            baseSeekerSpeed = 0.25;
+            gameState = 'hiding';
+
+            document.getElementById('status-text').textContent = 'اختبئ بسرعة!';
+            document.getElementById('status-text').style.color = '#ffcc00';
+            document.getElementById('game-status').style.borderColor = '#ffcc00';
+            document.getElementById('timer').textContent = hideTime;
+            document.getElementById('score').textContent = 0;
+
+            timerInterval = setInterval(() => {
+                if (gameState === 'hiding') {
+                    hideTime--;
+                    document.getElementById('timer').textContent = hideTime;
+                    if (hideTime <= 0) {
+                        gameState = 'seeking';
+                        document.getElementById('status-text').textContent = 'الصائد يبحث عنك!';
+                        document.getElementById('status-text').style.color = '#ff3333';
+                        document.getElementById('game-status').style.borderColor = '#ff3333';
+                    }
+                } else if (gameState === 'seeking') {
+                    survivedTime++;
+                    document.getElementById('timer').textContent = `${survivedTime}s صمود`;
+                    document.getElementById('score').textContent = survivedTime * 10;
+                    
+                    // زيادة سرعة الصائد تدريجياً لزيادة التحدي
+                    baseSeekerSpeed += 0.005;
+                }
+            }, 1000);
+        }
+
+        function resetGame() {
+            document.getElementById('game-over-screen').style.display = 'none';
+            camera.position.set(0, 3, 0);
+            seekerGroup.position.set(0, 0, -120);
+            yaw = 0;
+            pitch = 0;
+            startTimer();
+        }
+
+        startTimer();
+
+        // ------------------ التحديث الرئيسي ------------------
         let fps = 0;
         let lastTime = Date.now();
 
         function animate() {
             requestAnimationFrame(animate);
 
-            // ????? ??????
-            const isSprinting = keys['ShiftLeft'] || keys['ShiftRight'] || isSprintingTouch;
-            const speed = isSprinting ? 0.35 : 0.18;
+            if (gameState !== 'caught') {
+                const isSprinting = keys['ShiftLeft'] || keys['ShiftRight'] || isSprintingTouch;
+                const speed = isSprinting ? 0.42 : 0.22;
 
-            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-            const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 
-            // ?????? ??? ???? ????????
-            if (keys['KeyW']) camera.position.addScaledVector(forward, speed);
-            if (keys['KeyS']) camera.position.addScaledVector(forward, -speed);
-            if (keys['KeyA']) camera.position.addScaledVector(right, -speed);
-            if (keys['KeyD']) camera.position.addScaledVector(right, speed);
+                let moveDelta = new THREE.Vector3();
 
-            // ?????? ??? ????? (????? ??????????)
-            if (touchMoveVector.x !== 0 || touchMoveVector.y !== 0) {
-                camera.position.addScaledVector(right, touchMoveVector.x * speed);
-                camera.position.addScaledVector(forward, -touchMoveVector.y * speed);
+                // دعم الأسهم والـ WASD
+                if (keys['KeyW'] || keys['ArrowUp']) moveDelta.addScaledVector(forward, speed);
+                if (keys['KeyS'] || keys['ArrowDown']) moveDelta.addScaledVector(forward, -speed);
+                if (keys['KeyA'] || keys['ArrowLeft']) moveDelta.addScaledVector(right, -speed);
+                if (keys['KeyD'] || keys['ArrowRight']) moveDelta.addScaledVector(right, speed);
+
+                if (touchMoveVector.x !== 0 || touchMoveVector.y !== 0) {
+                    moveDelta.addScaledVector(right, touchMoveVector.x * speed);
+                    moveDelta.addScaledVector(forward, -touchMoveVector.y * speed);
+                }
+
+                // حركة اللاعب والتصادم
+                const playerRadius = 0.8;
+                const oldPos = camera.position.clone();
+
+                camera.position.x += moveDelta.x;
+                if (checkCollision(camera.position, playerRadius)) camera.position.x = oldPos.x;
+
+                camera.position.z += moveDelta.z;
+                if (checkCollision(camera.position, playerRadius)) camera.position.z = oldPos.z;
+
+                const isMoving = moveDelta.lengthSq() > 0;
+
+                // الجاذبية
+                playerVelocity.y -= 0.02;
+                camera.position.y += playerVelocity.y;
+
+                if (isMoving && canJump) {
+                    headBobTimer += isSprinting ? 0.25 : 0.15;
+                    camera.position.y = 2 + Math.sin(headBobTimer) * 0.1;
+                } else if (camera.position.y <= 2) {
+                    camera.position.y = 2;
+                    playerVelocity.y = 0;
+                    canJump = true;
+                }
+
+                // حدود الخريطة
+                camera.position.x = Math.max(-950, Math.min(950, camera.position.x));
+                camera.position.z = Math.max(-950, Math.min(950, camera.position.z));
+
+                const direction = new THREE.Vector3(0, 0, -1)
+                    .applyAxisAngle(new THREE.Vector3(1, 0, 0), pitch)
+                    .applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                camera.lookAt(camera.position.clone().add(direction));
+
+                // ذكاء اصطناعي للصائد والتحدي المباشر
+                if (gameState === 'seeking') {
+                    const dirToPlayer = new THREE.Vector3().subVectors(camera.position, seekerGroup.position);
+                    dirToPlayer.y = 0;
+                    const distance = dirToPlayer.length();
+
+                    // زيادة السرعة إذا كان الصائد يراك من مسافة قريبة
+                    let currentSeekerSpeed = baseSeekerSpeed;
+                    if (distance < 30) {
+                        currentSeekerSpeed += 0.08; // اندفاع أسرع عند الاقتراب
+                    }
+
+                    if (distance > 1) {
+                        dirToPlayer.normalize();
+                        const nextSeekerPos = seekerGroup.position.clone().addScaledVector(dirToPlayer, currentSeekerSpeed);
+
+                        if (!checkCollision(nextSeekerPos, 1.2)) {
+                            seekerGroup.position.copy(nextSeekerPos);
+                        } else {
+                            const slidePos = seekerGroup.position.clone().addScaledVector(dirToPlayer, currentSeekerSpeed * 0.5);
+                            slidePos.x += (Math.random() - 0.5) * 0.2;
+                            if (!checkCollision(slidePos, 1.2)) {
+                                seekerGroup.position.copy(slidePos);
+                            }
+                        }
+
+                        seekerGroup.lookAt(camera.position.x, seekerGroup.position.y, camera.position.z);
+                    }
+
+                    // شرط الخسارة للإمساك باللاعب
+                    if (distance < 2.8) {
+                        gameState = 'caught';
+                        clearInterval(timerInterval);
+                        document.exitPointerLock();
+
+                        if (survivedTime > highScore) {
+                            highScore = survivedTime;
+                            localStorage.setItem('hide_seek_highscore', highScore);
+                        }
+
+                        document.getElementById('final-score').textContent = `صمدت لمدة: ${survivedTime} ثانية (${survivedTime * 10} نقطة)`;
+                        document.getElementById('high-score-text').textContent = `أعلى رقم قياسي: ${highScore} ثانية`;
+                        document.getElementById('game-over-screen').style.display = 'flex';
+                    }
+                }
             }
 
-            // ????????
-            playerVelocity.y -= 0.018;
-            camera.position.y += playerVelocity.y;
-
-            if (camera.position.y <= 2) {
-                camera.position.y = 2;
-                playerVelocity.y = 0;
-                canJump = true;
-            }
-
-            // ???? ??????
-            camera.position.x = Math.max(-240, Math.min(240, camera.position.x));
-            camera.position.z = Math.max(-240, Math.min(240, camera.position.z));
-
-            // ????? ????? ????????
-            const direction = new THREE.Vector3(0, 0, -1)
-                .applyAxisAngle(new THREE.Vector3(1, 0, 0), pitch)
-                .applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-            camera.lookAt(camera.position.clone().add(direction));
-
-            // ????? ???????
             document.getElementById('posX').textContent = camera.position.x.toFixed(1);
             document.getElementById('posY').textContent = camera.position.y.toFixed(1);
             document.getElementById('posZ').textContent = camera.position.z.toFixed(1);
