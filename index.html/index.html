@@ -185,8 +185,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87ceeb);
-        scene.fog = new THREE.FogExp2(0x87ceeb, 0.0012);
+        scene.background = new THREE.Color(0x7ec0ee);
+        scene.fog = new THREE.FogExp2(0x7ec0ee, 0.001);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
         camera.position.set(0, 3, 0);
@@ -206,7 +206,7 @@
         let headBobTimer = 0;
 
         let gameState = 'hiding';
-        let hideTime = 15; // تقليل الوقت لزيادة التحدي
+        let hideTime = 15;
         let survivedTime = 0;
         let highScore = localStorage.getItem('hide_seek_highscore') || 0;
         let timerInterval = null;
@@ -214,7 +214,7 @@
 
         const colliders = [];
 
-        // دعم مفاتيح الحركة والأسهم
+        // دعم المفاتيح
         document.addEventListener('keydown', (e) => {
             keys[e.code] = true;
             if (e.code === 'Space' && canJump && gameState !== 'caught') {
@@ -329,13 +329,13 @@
         // ------------------ البيئة والإضاءة ------------------
         const ground = new THREE.Mesh(
             new THREE.PlaneGeometry(2000, 2000),
-            new THREE.MeshStandardMaterial({ color: 0x4d8c43, roughness: 0.8 })
+            new THREE.MeshStandardMaterial({ color: 0x3d7035, roughness: 0.9 })
         );
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         scene.add(ground);
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444455, 0.6);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x333344, 0.6);
         hemiLight.position.set(0, 300, 0);
         scene.add(hemiLight);
 
@@ -353,15 +353,30 @@
         sun.shadow.camera.bottom = -d;
         scene.add(sun);
 
+        // إنشاء مبانٍ أكثر واقعية (مع تفاصيل الأسطح والكتل)
         function createBuilding(x, z, w, d, h, color) {
-            const mesh = new THREE.Mesh(
+            const buildingGroup = new THREE.Group();
+
+            const body = new THREE.Mesh(
                 new THREE.BoxGeometry(w, h, d),
-                new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 })
+                new THREE.MeshStandardMaterial({ color: color, roughness: 0.4 })
             );
-            mesh.position.set(x, h / 2, z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            scene.add(mesh);
+            body.position.y = h / 2;
+            body.castShadow = true;
+            body.receiveShadow = true;
+            buildingGroup.add(body);
+
+            // سقف بارز أو تفصيلة علوية لإعطاء واقعية أفضل
+            const roof = new THREE.Mesh(
+                new THREE.BoxGeometry(w + 0.6, 0.8, d + 0.6),
+                new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 })
+            );
+            roof.position.y = h + 0.4;
+            roof.castShadow = true;
+            buildingGroup.add(roof);
+
+            buildingGroup.position.set(x, 0, z);
+            scene.add(buildingGroup);
 
             colliders.push({
                 type: 'box',
@@ -372,42 +387,55 @@
             });
         }
 
+        // إنشاء أشجار واقعية بطبقات متعددة (Pine/Fir trees)
         function createTree(x, z) {
-            const trunkRadius = 0.8;
+            const treeGroup = new THREE.Group();
+            
+            const trunkRadius = 0.6;
             const trunk = new THREE.Mesh(
-                new THREE.CylinderGeometry(trunkRadius * 0.8, trunkRadius, 6, 8),
-                new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 })
+                new THREE.CylinderGeometry(trunkRadius * 0.8, trunkRadius, 5, 8),
+                new THREE.MeshStandardMaterial({ color: 0x4a3219, roughness: 0.9 })
             );
-            trunk.position.set(x, 3, z);
+            trunk.position.y = 2.5;
             trunk.castShadow = true;
-            trunk.receiveShadow = true;
-            scene.add(trunk);
+            treeGroup.add(trunk);
 
-            const leaves = new THREE.Mesh(
-                new THREE.ConeGeometry(4, 9, 8),
-                new THREE.MeshStandardMaterial({ color: 0x1e561e, roughness: 0.7 })
-            );
-            leaves.position.set(x, 9, z);
-            leaves.castShadow = true;
-            leaves.receiveShadow = true;
-            scene.add(leaves);
+            // طبقات الأوراق
+            const leavesMat = new THREE.MeshStandardMaterial({ color: 0x143814, roughness: 0.8 });
+            const tier1 = new THREE.Mesh(new THREE.ConeGeometry(3.5, 5, 7), leavesMat);
+            tier1.position.y = 5;
+            tier1.castShadow = true;
+            treeGroup.add(tier1);
+
+            const tier2 = new THREE.Mesh(new THREE.ConeGeometry(2.6, 4, 7), leavesMat);
+            tier2.position.y = 7.5;
+            tier2.castShadow = true;
+            treeGroup.add(tier2);
+
+            const tier3 = new THREE.Mesh(new THREE.ConeGeometry(1.5, 3, 7), leavesMat);
+            tier3.position.y = 9.5;
+            tier3.castShadow = true;
+            treeGroup.add(tier3);
+
+            treeGroup.position.set(x, 0, z);
+            scene.add(treeGroup);
 
             colliders.push({
                 type: 'cylinder',
                 x: x,
                 z: z,
-                radius: trunkRadius
+                radius: trunkRadius * 1.5
             });
         }
 
-        const buildingColors = [0xb22222, 0x4682b4, 0xd2691e, 0x708090, 0x2e8b57];
+        const buildingColors = [0x8b3a3a, 0x36648b, 0x8b6508, 0x556b2f, 0x474747];
         for (let i = 0; i < 60; i++) {
             const x = (Math.random() - 0.5) * 1600;
             const z = (Math.random() - 0.5) * 1600;
             if (Math.hypot(x, z) > 35) {
-                const w = 8 + Math.random() * 12;
-                const d = 8 + Math.random() * 12;
-                const h = 8 + Math.random() * 15;
+                const w = 9 + Math.random() * 12;
+                const d = 9 + Math.random() * 12;
+                const h = 10 + Math.random() * 18;
                 const col = buildingColors[Math.floor(Math.random() * buildingColors.length)];
                 createBuilding(x, z, w, d, h, col);
             }
@@ -421,37 +449,74 @@
             }
         }
 
-        // ------------------ مجسم الصائد واعيونه والمصباح ------------------
+        // ------------------ مجسم الصائد (إنسان شرير مرعب) ------------------
         const seekerGroup = new THREE.Group();
         
-        const seekerBody = new THREE.Mesh(
-            new THREE.CylinderGeometry(1, 1, 4, 16),
-            new THREE.MeshStandardMaterial({ color: 0xcc0000, roughness: 0.3 })
-        );
-        seekerBody.position.y = 2;
-        seekerBody.castShadow = true;
-        seekerGroup.add(seekerBody);
+        const darkClothMat = new THREE.MeshStandardMaterial({ color: 0x1b1b1b, roughness: 0.5 });
+        const evilSkinMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.7 });
+        const glowingRed = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
-        const seekerHead = new THREE.Mesh(
-            new THREE.SphereGeometry(1.2, 16, 16),
-            new THREE.MeshStandardMaterial({ color: 0x222222 })
+        // الجذع (مع معطف/ملابس داكنة)
+        const torso = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.7, 0.9, 2.6, 8),
+            darkClothMat
         );
-        seekerHead.position.y = 4.5;
-        seekerGroup.add(seekerHead);
+        torso.position.y = 2.3;
+        torso.castShadow = true;
+        seekerGroup.add(torso);
 
-        const eyeGeo = new THREE.SphereGeometry(0.3, 8, 8);
-        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-        leftEye.position.set(-0.4, 4.6, 1);
-        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-        rightEye.position.set(0.4, 4.6, 1);
+        // الرأس
+        const head = new THREE.Mesh(
+            new THREE.SphereGeometry(0.75, 16, 16),
+            evilSkinMat
+        );
+        head.position.y = 4.1;
+        head.castShadow = true;
+        seekerGroup.add(head);
+
+        // غطاء رأس / قبعة مخيفة
+        const hood = new THREE.Mesh(
+            new THREE.ConeGeometry(0.9, 1.2, 8),
+            darkClothMat
+        );
+        hood.position.y = 4.6;
+        seekerGroup.add(hood);
+
+        // عيون شريرة حمراء متوهجة
+        const eyeGeo = new THREE.SphereGeometry(0.12, 8, 8);
+        const leftEye = new THREE.Mesh(eyeGeo, glowingRed);
+        leftEye.position.set(-0.25, 4.2, 0.6);
+        const rightEye = new THREE.Mesh(eyeGeo, glowingRed);
+        rightEye.position.set(0.25, 4.2, 0.6);
         seekerGroup.add(leftEye);
         seekerGroup.add(rightEye);
 
-        // كشاف الصائد الاحمر
-        const seekerSpotlight = new THREE.SpotLight(0xff0000, 3, 100, Math.PI / 5, 0.5);
-        seekerSpotlight.position.set(0, 4.5, 0.5);
-        seekerSpotlight.target.position.set(0, 0, 20);
+        // الأذرع
+        const armGeo = new THREE.CylinderGeometry(0.2, 0.2, 2.2, 8);
+        const leftArm = new THREE.Mesh(armGeo, darkClothMat);
+        leftArm.position.set(-0.9, 2.5, 0);
+        leftArm.rotation.z = Math.PI / 12;
+        seekerGroup.add(leftArm);
+
+        const rightArm = new THREE.Mesh(armGeo, darkClothMat);
+        rightArm.position.set(0.9, 2.5, 0);
+        rightArm.rotation.z = -Math.PI / 12;
+        seekerGroup.add(rightArm);
+
+        // الأرجل
+        const legGeo = new THREE.CylinderGeometry(0.25, 0.25, 2.3, 8);
+        const leftLeg = new THREE.Mesh(legGeo, darkClothMat);
+        leftLeg.position.set(-0.35, 1.0, 0);
+        seekerGroup.add(leftLeg);
+
+        const rightLeg = new THREE.Mesh(legGeo, darkClothMat);
+        rightLeg.position.set(0.35, 1.0, 0);
+        seekerGroup.add(rightLeg);
+
+        // كشاف الصائد الأحمر
+        const seekerSpotlight = new THREE.SpotLight(0xff0000, 3.5, 120, Math.PI / 4, 0.5);
+        seekerSpotlight.position.set(0, 4.0, 0.5);
+        seekerSpotlight.target.position.set(0, 0, 25);
         seekerGroup.add(seekerSpotlight);
         seekerGroup.add(seekerSpotlight.target);
 
@@ -496,7 +561,7 @@
                     document.getElementById('timer').textContent = hideTime;
                     if (hideTime <= 0) {
                         gameState = 'seeking';
-                        document.getElementById('status-text').textContent = 'الصائد يبحث عنك!';
+                        document.getElementById('status-text').textContent = 'الصائد الشرير يبحث عنك!';
                         document.getElementById('status-text').style.color = '#ff3333';
                         document.getElementById('game-status').style.borderColor = '#ff3333';
                     }
@@ -505,7 +570,6 @@
                     document.getElementById('timer').textContent = `${survivedTime}s صمود`;
                     document.getElementById('score').textContent = survivedTime * 10;
                     
-                    // زيادة سرعة الصائد تدريجياً لزيادة التحدي
                     baseSeekerSpeed += 0.005;
                 }
             }, 1000);
@@ -538,7 +602,6 @@
 
                 let moveDelta = new THREE.Vector3();
 
-                // دعم الأسهم والـ WASD
                 if (keys['KeyW'] || keys['ArrowUp']) moveDelta.addScaledVector(forward, speed);
                 if (keys['KeyS'] || keys['ArrowDown']) moveDelta.addScaledVector(forward, -speed);
                 if (keys['KeyA'] || keys['ArrowLeft']) moveDelta.addScaledVector(right, -speed);
@@ -549,7 +612,6 @@
                     moveDelta.addScaledVector(forward, -touchMoveVector.y * speed);
                 }
 
-                // حركة اللاعب والتصادم
                 const playerRadius = 0.8;
                 const oldPos = camera.position.clone();
 
@@ -561,7 +623,6 @@
 
                 const isMoving = moveDelta.lengthSq() > 0;
 
-                // الجاذبية
                 playerVelocity.y -= 0.02;
                 camera.position.y += playerVelocity.y;
 
@@ -574,7 +635,6 @@
                     canJump = true;
                 }
 
-                // حدود الخريطة
                 camera.position.x = Math.max(-950, Math.min(950, camera.position.x));
                 camera.position.z = Math.max(-950, Math.min(950, camera.position.z));
 
@@ -583,16 +643,15 @@
                     .applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
                 camera.lookAt(camera.position.clone().add(direction));
 
-                // ذكاء اصطناعي للصائد والتحدي المباشر
+                // ذكاء اصطناعي للصائد الشرير
                 if (gameState === 'seeking') {
                     const dirToPlayer = new THREE.Vector3().subVectors(camera.position, seekerGroup.position);
                     dirToPlayer.y = 0;
                     const distance = dirToPlayer.length();
 
-                    // زيادة السرعة إذا كان الصائد يراك من مسافة قريبة
                     let currentSeekerSpeed = baseSeekerSpeed;
                     if (distance < 30) {
-                        currentSeekerSpeed += 0.08; // اندفاع أسرع عند الاقتراب
+                        currentSeekerSpeed += 0.08;
                     }
 
                     if (distance > 1) {
@@ -612,7 +671,6 @@
                         seekerGroup.lookAt(camera.position.x, seekerGroup.position.y, camera.position.z);
                     }
 
-                    // شرط الخسارة للإمساك باللاعب
                     if (distance < 2.8) {
                         gameState = 'caught';
                         clearInterval(timerInterval);
