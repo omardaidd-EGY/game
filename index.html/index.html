@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>لعبة الغميضة 3D - التحدي الأقصى</title>
+    <title>لعبة الغميضة 3D - النسخة الاحترافية PRO Max</title>
     <style>
         * {
             margin: 0;
@@ -61,7 +61,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.9);
             z-index: 2000;
             flex-direction: column;
             justify-content: center;
@@ -160,7 +160,7 @@
     </div>
 
     <div id="info">
-        <div>غميضة 3D (تحدي)</div>
+        <div>غميضة 3D (PRO Max)</div>
         <div>النقاط: <span id="score">0</span></div>
         <div>X: <span id="posX">0</span></div>
         <div>Y: <span id="posY">0</span></div>
@@ -185,8 +185,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x7ec0ee);
-        scene.fog = new THREE.FogExp2(0x7ec0ee, 0.001);
+        scene.background = new THREE.Color(0x6ba4d6);
+        scene.fog = new THREE.FogExp2(0x6ba4d6, 0.0012);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
         camera.position.set(0, 3, 0);
@@ -208,13 +208,13 @@
         let gameState = 'hiding';
         let hideTime = 15;
         let survivedTime = 0;
-        let highScore = localStorage.getItem('hide_seek_highscore') || 0;
+        let highScore = localStorage.getItem('hide_seek_highscore_pro') || 0;
         let timerInterval = null;
         let baseSeekerSpeed = 0.25;
 
         const colliders = [];
 
-        // دعم المفاتيح
+        // التحكم بلوحة المفاتيح
         document.addEventListener('keydown', (e) => {
             keys[e.code] = true;
             if (e.code === 'Space' && canJump && gameState !== 'caught') {
@@ -328,52 +328,62 @@
 
         // ------------------ البيئة والإضاءة ------------------
         const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(2000, 2000),
-            new THREE.MeshStandardMaterial({ color: 0x3d7035, roughness: 0.9 })
+            new THREE.PlaneGeometry(2500, 2500),
+            new THREE.MeshStandardMaterial({ color: 0x2e5a27, roughness: 0.85 })
         );
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         scene.add(ground);
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x333344, 0.6);
-        hemiLight.position.set(0, 300, 0);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x223322, 0.5);
+        hemiLight.position.set(0, 400, 0);
         scene.add(hemiLight);
 
-        const sun = new THREE.DirectionalLight(0xfffaed, 1.2);
-        sun.position.set(200, 400, 150);
+        const sun = new THREE.DirectionalLight(0xfffaed, 1.3);
+        sun.position.set(300, 500, 200);
         sun.castShadow = true;
         sun.shadow.mapSize.width = 2048;
         sun.shadow.mapSize.height = 2048;
         sun.shadow.camera.near = 0.5;
-        sun.shadow.camera.far = 1000;
-        const d = 500;
+        sun.shadow.camera.far = 1200;
+        const d = 600;
         sun.shadow.camera.left = -d;
         sun.shadow.camera.right = d;
         sun.shadow.camera.top = d;
         sun.shadow.camera.bottom = -d;
         scene.add(sun);
 
-        // إنشاء مبانٍ أكثر واقعية (مع تفاصيل الأسطح والكتل)
+        // بناء بيوت واقعية PRO Max مع تفاصيل النوافذ والأسقف
         function createBuilding(x, z, w, d, h, color) {
             const buildingGroup = new THREE.Group();
 
+            // الجسم الأساسي للمبنى
             const body = new THREE.Mesh(
                 new THREE.BoxGeometry(w, h, d),
-                new THREE.MeshStandardMaterial({ color: color, roughness: 0.4 })
+                new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 })
             );
             body.position.y = h / 2;
             body.castShadow = true;
             body.receiveShadow = true;
             buildingGroup.add(body);
 
-            // سقف بارز أو تفصيلة علوية لإعطاء واقعية أفضل
+            // سقف مائل مع إطار
             const roof = new THREE.Mesh(
-                new THREE.BoxGeometry(w + 0.6, 0.8, d + 0.6),
-                new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 })
+                new THREE.BoxGeometry(w + 0.8, 1.0, d + 0.8),
+                new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
             );
-            roof.position.y = h + 0.4;
+            roof.position.y = h + 0.5;
             roof.castShadow = true;
             buildingGroup.add(roof);
+
+            // إضافة نوافذ متوهجة واقعية على الجدران
+            const windowMat = new THREE.MeshBasicMaterial({ color: 0xffe066 });
+            for (let wx = -w/3; wx <= w/3; wx += w/2) {
+                if(wx === 0 && w < 10) continue;
+                const win = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.1), windowMat);
+                win.position.set(wx, h * 0.6, d / 2 + 0.05);
+                buildingGroup.add(win);
+            }
 
             buildingGroup.position.set(x, 0, z);
             scene.add(buildingGroup);
@@ -387,33 +397,34 @@
             });
         }
 
-        // إنشاء أشجار واقعية بطبقات متعددة (Pine/Fir trees)
+        // إنشاء أشجار صنوبرية كثيفة واقعية PRO
         function createTree(x, z) {
             const treeGroup = new THREE.Group();
             
-            const trunkRadius = 0.6;
+            const trunkRadius = 0.7;
             const trunk = new THREE.Mesh(
-                new THREE.CylinderGeometry(trunkRadius * 0.8, trunkRadius, 5, 8),
-                new THREE.MeshStandardMaterial({ color: 0x4a3219, roughness: 0.9 })
+                new THREE.CylinderGeometry(trunkRadius * 0.7, trunkRadius, 6, 8),
+                new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 0.9 })
             );
-            trunk.position.y = 2.5;
+            trunk.position.y = 3;
             trunk.castShadow = true;
             treeGroup.add(trunk);
 
-            // طبقات الأوراق
-            const leavesMat = new THREE.MeshStandardMaterial({ color: 0x143814, roughness: 0.8 });
-            const tier1 = new THREE.Mesh(new THREE.ConeGeometry(3.5, 5, 7), leavesMat);
+            const leavesMat = new THREE.MeshStandardMaterial({ color: 0x0f3b18, roughness: 0.8 });
+            
+            // طبقات الأوراق المخروطية المتعددة
+            const tier1 = new THREE.Mesh(new THREE.ConeGeometry(4.2, 5.5, 8), leavesMat);
             tier1.position.y = 5;
             tier1.castShadow = true;
             treeGroup.add(tier1);
 
-            const tier2 = new THREE.Mesh(new THREE.ConeGeometry(2.6, 4, 7), leavesMat);
+            const tier2 = new THREE.Mesh(new THREE.ConeGeometry(3.2, 4.5, 8), leavesMat);
             tier2.position.y = 7.5;
             tier2.castShadow = true;
             treeGroup.add(tier2);
 
-            const tier3 = new THREE.Mesh(new THREE.ConeGeometry(1.5, 3, 7), leavesMat);
-            tier3.position.y = 9.5;
+            const tier3 = new THREE.Mesh(new THREE.ConeGeometry(2.0, 3.5, 8), leavesMat);
+            tier3.position.y = 9.8;
             tier3.castShadow = true;
             treeGroup.add(tier3);
 
@@ -428,99 +439,100 @@
             });
         }
 
-        const buildingColors = [0x8b3a3a, 0x36648b, 0x8b6508, 0x556b2f, 0x474747];
-        for (let i = 0; i < 60; i++) {
-            const x = (Math.random() - 0.5) * 1600;
-            const z = (Math.random() - 0.5) * 1600;
-            if (Math.hypot(x, z) > 35) {
-                const w = 9 + Math.random() * 12;
-                const d = 9 + Math.random() * 12;
-                const h = 10 + Math.random() * 18;
+        // توليد الخريطة البيئية
+        const buildingColors = [0x7a3b3b, 0x3b5f7a, 0x7a653b, 0x4a6b3b, 0x454545];
+        for (let i = 0; i < 70; i++) {
+            const x = (Math.random() - 0.5) * 1800;
+            const z = (Math.random() - 0.5) * 1800;
+            if (Math.hypot(x, z) > 40) {
+                const w = 10 + Math.random() * 14;
+                const d = 10 + Math.random() * 14;
+                const h = 12 + Math.random() * 20;
                 const col = buildingColors[Math.floor(Math.random() * buildingColors.length)];
                 createBuilding(x, z, w, d, h, col);
             }
         }
 
-        for (let i = 0; i < 100; i++) {
-            const x = (Math.random() - 0.5) * 1600;
-            const z = (Math.random() - 0.5) * 1600;
-            if (Math.hypot(x, z) > 35) {
+        for (let i = 0; i < 120; i++) {
+            const x = (Math.random() - 0.5) * 1800;
+            const z = (Math.random() - 0.5) * 1800;
+            if (Math.hypot(x, z) > 40) {
                 createTree(x, z);
             }
         }
 
-        // ------------------ مجسم الصائد (إنسان شرير مرعب) ------------------
+        // ------------------ مجسم الصائد (إنسان شرير مرعب PRO Max) ------------------
         const seekerGroup = new THREE.Group();
         
-        const darkClothMat = new THREE.MeshStandardMaterial({ color: 0x1b1b1b, roughness: 0.5 });
-        const evilSkinMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.7 });
-        const glowingRed = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const coatMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 });
+        const skinMat = new THREE.MeshStandardMaterial({ color: 0x242424, roughness: 0.8 });
+        const redGlow = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
-        // الجذع (مع معطف/ملابس داكنة)
-        const torso = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.7, 0.9, 2.6, 8),
-            darkClothMat
+        // الجسم / المعطف الطويل
+        const seekerTorso = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.75, 1.0, 3.0, 12),
+            coatMat
         );
-        torso.position.y = 2.3;
-        torso.castShadow = true;
-        seekerGroup.add(torso);
+        seekerTorso.position.y = 2.4;
+        seekerTorso.castShadow = true;
+        seekerGroup.add(seekerTorso);
 
         // الرأس
-        const head = new THREE.Mesh(
-            new THREE.SphereGeometry(0.75, 16, 16),
-            evilSkinMat
+        const seekerHead = new THREE.Mesh(
+            new THREE.SphereGeometry(0.8, 16, 16),
+            skinMat
         );
-        head.position.y = 4.1;
-        head.castShadow = true;
-        seekerGroup.add(head);
+        seekerHead.position.y = 4.4;
+        seekerHead.castShadow = true;
+        seekerGroup.add(seekerHead);
 
-        // غطاء رأس / قبعة مخيفة
+        // قلنسوة / غطاء رأس مرعب
         const hood = new THREE.Mesh(
-            new THREE.ConeGeometry(0.9, 1.2, 8),
-            darkClothMat
+            new THREE.ConeGeometry(0.95, 1.4, 8),
+            coatMat
         );
-        hood.position.y = 4.6;
+        hood.position.y = 4.9;
         seekerGroup.add(hood);
 
-        // عيون شريرة حمراء متوهجة
+        // عيون شريرة مضيئة
         const eyeGeo = new THREE.SphereGeometry(0.12, 8, 8);
-        const leftEye = new THREE.Mesh(eyeGeo, glowingRed);
-        leftEye.position.set(-0.25, 4.2, 0.6);
-        const rightEye = new THREE.Mesh(eyeGeo, glowingRed);
-        rightEye.position.set(0.25, 4.2, 0.6);
-        seekerGroup.add(leftEye);
-        seekerGroup.add(rightEye);
+        const seekerLeftEye = new THREE.Mesh(eyeGeo, redGlow);
+        seekerLeftEye.position.set(-0.28, 4.4, 0.65);
+        const seekerRightEye = new THREE.Mesh(eyeGeo, redGlow);
+        seekerRightEye.position.set(0.28, 4.4, 0.65);
+        seekerGroup.add(seekerLeftEye);
+        seekerGroup.add(seekerRightEye);
 
-        // الأذرع
-        const armGeo = new THREE.CylinderGeometry(0.2, 0.2, 2.2, 8);
-        const leftArm = new THREE.Mesh(armGeo, darkClothMat);
-        leftArm.position.set(-0.9, 2.5, 0);
-        leftArm.rotation.z = Math.PI / 12;
+        // الأذرع المتحركة
+        const armGeo = new THREE.CylinderGeometry(0.22, 0.22, 2.4, 8);
+        const leftArm = new THREE.Mesh(armGeo, coatMat);
+        leftArm.name = 'leftArm';
+        leftArm.position.set(-1.0, 2.6, 0);
         seekerGroup.add(leftArm);
 
-        const rightArm = new THREE.Mesh(armGeo, darkClothMat);
-        rightArm.position.set(0.9, 2.5, 0);
-        rightArm.rotation.z = -Math.PI / 12;
+        const rightArm = new THREE.Mesh(armGeo, coatMat);
+        rightArm.name = 'rightArm';
+        rightArm.position.set(1.0, 2.6, 0);
         seekerGroup.add(rightArm);
 
         // الأرجل
-        const legGeo = new THREE.CylinderGeometry(0.25, 0.25, 2.3, 8);
-        const leftLeg = new THREE.Mesh(legGeo, darkClothMat);
-        leftLeg.position.set(-0.35, 1.0, 0);
+        const legGeo = new THREE.CylinderGeometry(0.28, 0.28, 2.5, 8);
+        const leftLeg = new THREE.Mesh(legGeo, coatMat);
+        leftLeg.position.set(-0.4, 1.0, 0);
         seekerGroup.add(leftLeg);
 
-        const rightLeg = new THREE.Mesh(legGeo, darkClothMat);
-        rightLeg.position.set(0.35, 1.0, 0);
+        const rightLeg = new THREE.Mesh(legGeo, coatMat);
+        rightLeg.position.set(0.4, 1.0, 0);
         seekerGroup.add(rightLeg);
 
-        // كشاف الصائد الأحمر
-        const seekerSpotlight = new THREE.SpotLight(0xff0000, 3.5, 120, Math.PI / 4, 0.5);
-        seekerSpotlight.position.set(0, 4.0, 0.5);
-        seekerSpotlight.target.position.set(0, 0, 25);
+        // مصباح كشاف الصائد المرعب
+        const seekerSpotlight = new THREE.SpotLight(0xff1111, 4.0, 140, Math.PI / 4, 0.4);
+        seekerSpotlight.position.set(0, 4.2, 0.5);
+        seekerSpotlight.target.position.set(0, 0, 30);
         seekerGroup.add(seekerSpotlight);
         seekerGroup.add(seekerSpotlight.target);
 
-        seekerGroup.position.set(0, 0, -100);
+        seekerGroup.position.set(0, 0, -120);
         scene.add(seekerGroup);
 
         // ------------------ دالة فحص التصادم ------------------
@@ -541,7 +553,7 @@
             return false;
         }
 
-        // ------------------ نظام الوقت والمنطق ------------------
+        // ------------------ نظام الوقت واللعبة ------------------
         function startTimer() {
             clearInterval(timerInterval);
             hideTime = 15;
@@ -561,7 +573,7 @@
                     document.getElementById('timer').textContent = hideTime;
                     if (hideTime <= 0) {
                         gameState = 'seeking';
-                        document.getElementById('status-text').textContent = 'الصائد الشرير يبحث عنك!';
+                        document.getElementById('status-text').textContent = 'الصائد الشرير يطاردك الآن!';
                         document.getElementById('status-text').style.color = '#ff3333';
                         document.getElementById('game-status').style.borderColor = '#ff3333';
                     }
@@ -578,7 +590,7 @@
         function resetGame() {
             document.getElementById('game-over-screen').style.display = 'none';
             camera.position.set(0, 3, 0);
-            seekerGroup.position.set(0, 0, -120);
+            seekerGroup.position.set(0, 0, -140);
             yaw = 0;
             pitch = 0;
             startTimer();
@@ -586,9 +598,10 @@
 
         startTimer();
 
-        // ------------------ التحديث الرئيسي ------------------
+        // ------------------ حلقة التحديث الرئيسية ------------------
         let fps = 0;
         let lastTime = Date.now();
+        let walkCycle = 0;
 
         function animate() {
             requestAnimationFrame(animate);
@@ -635,23 +648,23 @@
                     canJump = true;
                 }
 
-                camera.position.x = Math.max(-950, Math.min(950, camera.position.x));
-                camera.position.z = Math.max(-950, Math.min(950, camera.position.z));
+                camera.position.x = Math.max(-1100, Math.min(1100, camera.position.x));
+                camera.position.z = Math.max(-1100, Math.min(1100, camera.position.z));
 
                 const direction = new THREE.Vector3(0, 0, -1)
                     .applyAxisAngle(new THREE.Vector3(1, 0, 0), pitch)
                     .applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
                 camera.lookAt(camera.position.clone().add(direction));
 
-                // ذكاء اصطناعي للصائد الشرير
+                // ذكاء اصطناعي للصائد الشرير مع حركة واقعية
                 if (gameState === 'seeking') {
                     const dirToPlayer = new THREE.Vector3().subVectors(camera.position, seekerGroup.position);
                     dirToPlayer.y = 0;
                     const distance = dirToPlayer.length();
 
                     let currentSeekerSpeed = baseSeekerSpeed;
-                    if (distance < 30) {
-                        currentSeekerSpeed += 0.08;
+                    if (distance < 35) {
+                        currentSeekerSpeed += 0.09; // اندفاع مرعب عند الاقتراب
                     }
 
                     if (distance > 1) {
@@ -662,15 +675,25 @@
                             seekerGroup.position.copy(nextSeekerPos);
                         } else {
                             const slidePos = seekerGroup.position.clone().addScaledVector(dirToPlayer, currentSeekerSpeed * 0.5);
-                            slidePos.x += (Math.random() - 0.5) * 0.2;
+                            slidePos.x += (Math.random() - 0.5) * 0.3;
                             if (!checkCollision(slidePos, 1.2)) {
                                 seekerGroup.position.copy(slidePos);
                             }
                         }
 
                         seekerGroup.lookAt(camera.position.x, seekerGroup.position.y, camera.position.z);
+
+                        // تحريك الأذرع أثناء المطاردة
+                        walkCycle += 0.15;
+                        const lArm = seekerGroup.getObjectByName('leftArm');
+                        const rArm = seekerGroup.getObjectByName('rightArm');
+                        if(lArm && rArm) {
+                            lArm.rotation.x = Math.sin(walkCycle) * 0.6;
+                            rArm.rotation.x = -Math.sin(walkCycle) * 0.6;
+                        }
                     }
 
+                    // شرط الخسارة
                     if (distance < 2.8) {
                         gameState = 'caught';
                         clearInterval(timerInterval);
@@ -678,7 +701,7 @@
 
                         if (survivedTime > highScore) {
                             highScore = survivedTime;
-                            localStorage.setItem('hide_seek_highscore', highScore);
+                            localStorage.setItem('hide_seek_highscore_pro', highScore);
                         }
 
                         document.getElementById('final-score').textContent = `صمدت لمدة: ${survivedTime} ثانية (${survivedTime * 10} نقطة)`;
